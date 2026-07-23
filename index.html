@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="音声スコア計算" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>音声スコア計算</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f6fb;
+      --panel: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --primary: #0f172a;
+      --primary-2: #1e3a8a;
+      --danger: #b91c1c;
+      --danger-bg: #fee2e2;
+      --line: #dbe2ea;
+      --ok: #166534;
+      --ok-bg: #dcfce7;
+      --warning: #92400e;
+      --warning-bg: #fef3c7;
+      --shadow: 0 8px 24px rgba(15, 23, 42, .08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    }
+
+    button {
+      font: inherit;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .app {
+      width: min(760px, 100%);
+      margin: 0 auto;
+      padding: max(18px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom));
+    }
+
+    header {
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.55rem, 6vw, 2.1rem);
+      letter-spacing: .02em;
+    }
+
+    .subtitle {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: .95rem;
+      line-height: 1.5;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(219,226,234,.9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      margin-top: 14px;
+    }
+
+    .status-row,
+    .section-head,
+    .button-row,
+    .history-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-row,
+    .section-head {
+      justify-content: space-between;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: #9ca3af;
+      box-shadow: 0 0 0 5px rgba(156,163,175,.15);
+    }
+
+    .status-dot.listening {
+      background: #dc2626;
+      box-shadow: 0 0 0 5px rgba(220,38,38,.15);
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.18); opacity: .7; }
+    }
+
+    .primary {
+      width: 100%;
+      min-height: 58px;
+      border: 0;
+      border-radius: 15px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      color: white;
+      font-size: 1.08rem;
+      font-weight: 800;
+      margin-top: 16px;
+      padding: 13px 18px;
+    }
+
+    .primary.active {
+      background: linear-gradient(135deg, #7f1d1d, #dc2626);
+    }
+
+    .score-slots {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin: 16px 0 14px;
+    }
+
+    .slot {
+      min-height: 64px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      border: 2px solid var(--line);
+      background: #f8fafc;
+      font-size: clamp(1.25rem, 6vw, 1.8rem);
+      font-weight: 900;
+    }
+
+    .slot.filled {
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .metric {
+      background: #f8fafc;
+      border-radius: 13px;
+      padding: 12px 8px;
+      text-align: center;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: .78rem;
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 1.15rem;
+      font-weight: 900;
+    }
+
+    .button-row {
+      margin-top: 14px;
+    }
+
+    .secondary,
+    .danger-outline,
+    .icon-btn {
+      border-radius: 13px;
+      min-height: 48px;
+      padding: 10px 14px;
+      background: #fff;
+      font-weight: 800;
+    }
+
+    .secondary {
+      flex: 1;
+      border: 1px solid #94a3b8;
+      color: #334155;
+    }
+
+    .danger-outline {
+      flex: 1.4;
+      border: 1px solid #fca5a5;
+      color: var(--danger);
+      background: #fff7f7;
+    }
+
+    .manual-title {
+      margin: 18px 0 8px;
+      font-weight: 800;
+      font-size: .95rem;
+    }
+
+    .manual-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .manual-btn {
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      min-height: 48px;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+
+    .manual-btn.x {
+      background: #eff6ff;
+      border-color: #93c5fd;
+    }
+
+    .message {
+      margin-top: 14px;
+      border-radius: 12px;
+      padding: 11px 13px;
+      line-height: 1.5;
+      font-size: .92rem;
+    }
+
+    .message.info { background: #eff6ff; color: #1e3a8a; }
+    .message.ok { background: var(--ok-bg); color: var(--ok); }
+    .message.warning { background: var(--warning-bg); color: var(--warning); }
+    .message.error { background: var(--danger-bg); color: var(--danger); }
+
+    .history-title {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+
+    .count {
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .history-empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 24px 8px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 14px;
+    }
+
+    .history-item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fbfdff;
+    }
+
+    .history-item-top {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .expression {
+      font-weight: 800;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .result {
+      margin-top: 7px;
+      font-size: 1.4rem;
+      font-weight: 950;
+    }
+
+    .timestamp {
+      color: var(--muted);
+      font-size: .78rem;
+      margin-top: 7px;
+    }
+
+    .icon-btn {
+      border: 1px solid #fecaca;
+      color: var(--danger);
+      background: #fff;
+      min-width: 64px;
+      min-height: 42px;
+    }
+
+    .history-actions {
+      justify-content: flex-end;
+      margin-top: 14px;
+    }
+
+    .history-actions .danger-outline {
+      flex: none;
+    }
+
+    .help {
+      color: var(--muted);
+      font-size: .86rem;
+      line-height: 1.65;
+      margin: 14px 2px 0;
+    }
+
+    @media (max-width: 460px) {
+      .metrics { grid-template-columns: 1fr 1fr 1fr; }
+      .button-row { flex-direction: column; }
+      .button-row button { width: 100%; }
+      .manual-grid { grid-template-columns: repeat(4, 1fr); }
+      .panel { padding: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>音声スコア計算</h1>
+      <p class="subtitle">0〜10、または「インナー」「インナーテン」を読み上げてください。5発ごとに自動確定します。</p>
+    </header>
+
+    <section class="panel" aria-labelledby="input-heading">
+      <div class="status-row">
+        <div>
+          <div id="input-heading" style="font-weight:900;">現在の入力</div>
+          <div class="status" style="margin-top:7px;">
+            <span id="statusDot" class="status-dot"></span>
+            <span id="statusText">停止中</span>
+          </div>
+        </div>
+        <div id="supportBadge" class="count"></div>
+      </div>
+
+      <button id="listenBtn" class="primary" type="button">音声入力を開始</button>
+
+      <div id="scoreSlots" class="score-slots" aria-live="polite"></div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">入力数</div>
+          <div id="inputCount" class="metric-value">0 / 5</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">現在の合計</div>
+          <div id="currentTotal" class="metric-value">0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">X</div>
+          <div id="currentX" class="metric-value">0</div>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="undoBtn" class="secondary" type="button">1つ戻す</button>
+        <button id="clearInputBtn" class="danger-outline" type="button">入力中の数字をクリア</button>
+      </div>
+
+      <div class="manual-title">手動入力</div>
+      <div id="manualGrid" class="manual-grid"></div>
+
+      <div id="message" class="message info" role="status">
+        音声認識後の文字列は、使用可能なスコアだけに変換されます。
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="history-heading">
+      <div class="section-head">
+        <h2 id="history-heading" class="history-title">5発単位の履歴</h2>
+        <span id="historyCount" class="count">0件</span>
+      </div>
+
+      <div id="historyList" class="history-list"></div>
+
+      <div class="history-actions">
+        <button id="clearHistoryBtn" class="danger-outline" type="button">履歴をすべて消去</button>
+      </div>
+    </section>
+
+    <p class="help">
+      Xは「インナー」「インナーテン」のみ認識します。「エックス」はXとして扱いません。
+      履歴はこの端末のブラウザ内に保存されます。
+    </p>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const STORAGE_KEY = "voice-score-calculator-history-v1";
+      const MAX_HISTORY = 200;
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      const state = {
+        current: [],
+        history: loadHistory(),
+        recognition: null,
+        listening: false,
+        restartAfterEnd: false,
+        lastProcessedAt: 0,
+        lastTranscript: ""
+      };
+
+      const els = {
+        slots: document.getElementById("scoreSlots"),
+        inputCount: document.getElementById("inputCount"),
+        currentTotal: document.getElementById("currentTotal"),
+        currentX: document.getElementById("currentX"),
+        listenBtn: document.getElementById("listenBtn"),
+        statusText: document.getElementById("statusText"),
+        statusDot: document.getElementById("statusDot"),
+        supportBadge: document.getElementById("supportBadge"),
+        undoBtn: document.getElementById("undoBtn"),
+        clearInputBtn: document.getElementById("clearInputBtn"),
+        manualGrid: document.getElementById("manualGrid"),
+        message: document.getElementById("message"),
+        historyList: document.getElementById("historyList"),
+        historyCount: document.getElementById("historyCount"),
+        clearHistoryBtn: document.getElementById("clearHistoryBtn")
+      };
+
+      function loadHistory() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveHistory() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.history.slice(0, MAX_HISTORY)));
+      }
+
+      function scoreValue(value) {
+        return value === "X" ? 10 : Number(value);
+      }
+
+      function totalOf(values) {
+        return values.reduce((sum, value) => sum + scoreValue(value), 0);
+      }
+
+      function xCountOf(values) {
+        return values.filter(v => v === "X").length;
+      }
+
+      function setMessage(text, type = "info") {
+        els.message.className = "message " + type;
+        els.message.textContent = text;
+      }
+
+      function renderCurrent() {
+        els.slots.innerHTML = "";
+        for (let i = 0; i < 5; i += 1) {
+          const div = document.createElement("div");
+          const value = state.current[i];
+          div.className = "slot" + (value !== undefined ? " filled" : "");
+          div.textContent = value !== undefined ? value : "＿";
+          els.slots.appendChild(div);
+        }
+        els.inputCount.textContent = `${state.current.length} / 5`;
+        els.currentTotal.textContent = totalOf(state.current);
+        els.currentX.textContent = xCountOf(state.current);
+        els.undoBtn.disabled = state.current.length === 0;
+        els.clearInputBtn.disabled = state.current.length === 0;
+      }
+
+      function renderHistory() {
+        els.historyCount.textContent = `${state.history.length}件`;
+        els.historyList.innerHTML = "";
+
+        if (state.history.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "history-empty";
+          empty.textContent = "履歴はまだありません";
+          els.historyList.appendChild(empty);
+          return;
+        }
+
+        state.history.forEach((item, index) => {
+          const card = document.createElement("article");
+          card.className = "history-item";
+
+          const top = document.createElement("div");
+          top.className = "history-item-top";
+
+          const body = document.createElement("div");
+          const expression = document.createElement("div");
+          expression.className = "expression";
+          expression.textContent = item.values.join(" + ");
+
+          const result = document.createElement("div");
+          result.className = "result";
+          result.textContent = `${item.total}（X = ${item.xCount}）`;
+
+          const timestamp = document.createElement("div");
+          timestamp.className = "timestamp";
+          timestamp.textContent = new Date(item.createdAt).toLocaleString("ja-JP");
+
+          body.append(expression, result, timestamp);
+
+          const del = document.createElement("button");
+          del.className = "icon-btn";
+          del.type = "button";
+          del.textContent = "削除";
+          del.setAttribute("aria-label", `${index + 1}件目の履歴を削除`);
+          del.addEventListener("click", () => {
+            if (!confirm("この履歴を削除しますか？")) return;
+            state.history.splice(index, 1);
+            saveHistory();
+            renderHistory();
+            setMessage("履歴を1件削除しました。", "ok");
+          });
+
+          top.append(body, del);
+          card.appendChild(top);
+          els.historyList.appendChild(card);
+        });
+      }
+
+      function addScore(value, source = "manual") {
+        if (!["0","1","2","3","4","5","6","7","8","9","10","X"].includes(String(value))) {
+          return;
+        }
+
+        state.current.push(String(value));
+        renderCurrent();
+
+        if (state.current.length === 5) {
+          const values = [...state.current];
+          const item = {
+            values,
+            total: totalOf(values),
+            xCount: xCountOf(values),
+            createdAt: new Date().toISOString()
+          };
+          state.history.unshift(item);
+          state.history = state.history.slice(0, MAX_HISTORY);
+          saveHistory();
+          state.current = [];
+          renderCurrent();
+          renderHistory();
+          setMessage(`${values.join(" + ")} → ${item.total}（X = ${item.xCount}）`, "ok");
+          if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+        } else {
+          const label = value === "X" ? "X" : value;
+          setMessage(`${label} を入力しました。残り ${5 - state.current.length} 発です。`, "info");
+        }
+      }
+
+      function normalizeJapaneseNumbers(text) {
+        const replacements = [
+          [/インナーテン/g, " X "],
+          [/インナー/g, " X "],
+          [/じゅう|ジュウ|十/g, " 10 "],
+          [/きゅう|キュウ|九/g, " 9 "],
+          [/はち|ハチ|八/g, " 8 "],
+          [/なな|ナナ|しち|シチ|七/g, " 7 "],
+          [/ろく|ロク|六/g, " 6 "],
+          [/ご|ゴ|五/g, " 5 "],
+          [/よん|ヨン|し|シ|四/g, " 4 "],
+          [/さん|サン|三/g, " 3 "],
+          [/に|ニ|二/g, " 2 "],
+          [/いち|イチ|一/g, " 1 "],
+          [/れい|レイ|ゼロ|零/g, " 0 "]
+        ];
+
+        let normalized = String(text)
+          .replace(/[、，,。．・/｜|＋+]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        for (const [pattern, replacement] of replacements) {
+          normalized = normalized.replace(pattern, replacement);
+        }
+        return normalized.replace(/\s+/g, " ").trim();
+      }
+
+      function parseTranscript(transcript) {
+        const normalized = normalizeJapaneseNumbers(transcript);
+
+        // 「エックス」「X」は意図的に対象外。
+        const tokens = normalized.match(/(?:^|\s)(10|[0-9]|X)(?=\s|$)/g) || [];
+        return tokens.map(t => t.trim());
+      }
+
+      function processTranscript(transcript) {
+        const now = Date.now();
+        const clean = transcript.trim();
+
+        // 同一結果の短時間重複登録を抑止
+        if (clean === state.lastTranscript && now - state.lastProcessedAt < 1200) return;
+        state.lastTranscript = clean;
+        state.lastProcessedAt = now;
+
+        const scores = parseTranscript(clean);
+        if (scores.length === 0) {
+          setMessage(`認識結果「${clean}」から有効なスコアを確認できませんでした。`, "warning");
+          return;
+        }
+
+        scores.forEach(score => addScore(score, "voice"));
+      }
+
+      function setupRecognition() {
+        if (!SpeechRecognition) {
+          els.supportBadge.textContent = "音声認識非対応";
+          els.listenBtn.disabled = true;
+          setMessage("このブラウザでは音声認識を使用できません。手動入力は利用できます。", "warning");
+          return;
+        }
+
+        els.supportBadge.textContent = "音声認識対応";
+        const recognition = new SpeechRecognition();
+        recognition.lang = "ja-JP";
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+          state.listening = true;
+          updateListeningUI();
+          setMessage("音声入力中です。数字または「インナー」「インナーテン」を読み上げてください。", "info");
+        };
+
+        recognition.onresult = event => {
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            if (event.results[i].isFinal) {
+              processTranscript(event.results[i][0].transcript);
+            }
+          }
+        };
+
+        recognition.onerror = event => {
+          const ignored = ["no-speech", "aborted"];
+          if (!ignored.includes(event.error)) {
+            setMessage(`音声認識エラー：${event.error}`, "error");
+          }
+        };
+
+        recognition.onend = () => {
+          state.listening = false;
+          updateListeningUI();
+          if (state.restartAfterEnd) {
+            try {
+              recognition.start();
+            } catch {}
+          }
+        };
+
+        state.recognition = recognition;
+      }
+
+      function updateListeningUI() {
+        els.statusText.textContent = state.listening ? "音声入力中" : "停止中";
+        els.statusDot.classList.toggle("listening", state.listening);
+        els.listenBtn.classList.toggle("active", state.listening);
+        els.listenBtn.textContent = state.listening ? "音声入力を停止" : "音声入力を開始";
+      }
+
+      function toggleListening() {
+        if (!state.recognition) return;
+
+        if (state.listening) {
+          state.restartAfterEnd = false;
+          state.recognition.stop();
+          setMessage("音声入力を停止しました。", "info");
+        } else {
+          state.restartAfterEnd = true;
+          try {
+            state.recognition.start();
+          } catch {
+            setMessage("音声入力を開始できませんでした。もう一度押してください。", "error");
+          }
+        }
+      }
+
+      function buildManualButtons() {
+        const values = ["0","1","2","3","4","5","6","7","8","9","10","X"];
+        values.forEach(value => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "manual-btn" + (value === "X" ? " x" : "");
+          btn.textContent = value;
+          btn.addEventListener("click", () => addScore(value, "manual"));
+          els.manualGrid.appendChild(btn);
+        });
+      }
+
+      els.listenBtn.addEventListener("click", toggleListening);
+
+      els.undoBtn.addEventListener("click", () => {
+        if (state.current.length === 0) return;
+        const removed = state.current.pop();
+        renderCurrent();
+        setMessage(`${removed} を取り消しました。`, "info");
+      });
+
+      els.clearInputBtn.addEventListener("click", () => {
+        if (state.current.length === 0) return;
+        if (!confirm("入力中の数字をすべてクリアしますか？")) return;
+        state.current = [];
+        renderCurrent();
+        setMessage("入力中の数字をクリアしました。", "ok");
+      });
+
+      els.clearHistoryBtn.addEventListener("click", () => {
+        if (state.history.length === 0) return;
+        if (!confirm("すべての履歴を削除しますか？この操作は元に戻せません。")) return;
+        state.history = [];
+        saveHistory();
+        renderHistory();
+        setMessage("履歴をすべて削除しました。", "ok");
+      });
+
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden && state.listening && state.recognition) {
+          state.restartAfterEnd = false;
+          state.recognition.stop();
+        }
+      });
+
+      buildManualButtons();
+      setupRecognition();
+      renderCurrent();
+      renderHistory();
+
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch(() => {});
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

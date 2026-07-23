@@ -1,0 +1,10 @@
+{
+  "name": "音声スコア計算",
+  "short_name": "スコア計算",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#0f172a",
+  "lang": "ja-JP",
+  "description": "ピストル競技向けの5発単位音声スコア計算アプリ"
+}

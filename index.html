@@ -341,7 +341,7 @@
   <main class="app">
     <header>
       <h1>音声スコア計算</h1>
-      <p class="subtitle">0〜10、または「インナー」「インナーテン」を読み上げてください。5発ごとに自動確定します。</p>
+      <p class="subtitle">0〜10、または「インナー」「インナーテン」を読み上げてください。「10点」と認識された場合も10として計算します。</p>
     </header>
 
     <section class="panel" aria-labelledby="input-heading">
@@ -357,6 +357,14 @@
       </div>
 
       <button id="listenBtn" class="primary" type="button">音声入力を開始</button>
+
+      <div style="margin-top:14px;">
+        <label for="languageSelect" style="display:block;font-weight:800;margin-bottom:7px;">音声認識言語</label>
+        <select id="languageSelect" style="width:100%;min-height:48px;border:1px solid #cbd5e1;border-radius:12px;padding:10px 12px;font:inherit;background:#fff;">
+          <option value="ja-JP">日本語</option>
+          <option value="en-US">English</option>
+        </select>
+      </div>
 
       <div id="scoreSlots" class="score-slots" aria-live="polite"></div>
 
@@ -384,7 +392,7 @@
       <div id="manualGrid" class="manual-grid"></div>
 
       <div id="message" class="message info" role="status">
-        音声認識後の文字列は、使用可能なスコアだけに変換されます。
+        高速入力モード：中間認識結果から有効な点数を早期確定します。
       </div>
     </section>
 
@@ -402,7 +410,7 @@
     </section>
 
     <p class="help">
-      Xは「インナー」「インナーテン」のみ認識します。「エックス」はXとして扱いません。
+      日本語ではXを「インナー」「インナーテン」、英語では「inner」「inner ten」として認識します。「エックス」や英字のXはXとして扱いません。
       履歴はこの端末のブラウザ内に保存されます。
     </p>
   </main>
@@ -422,7 +430,9 @@
         listening: false,
         restartAfterEnd: false,
         lastProcessedAt: 0,
-        lastTranscript: ""
+        lastTranscript: "",
+        resultStates: new Map(),
+        recognitionSession: 0
       };
 
       const els = {
@@ -431,6 +441,7 @@
         currentTotal: document.getElementById("currentTotal"),
         currentX: document.getElementById("currentX"),
         listenBtn: document.getElementById("listenBtn"),
+        languageSelect: document.getElementById("languageSelect"),
         statusText: document.getElementById("statusText"),
         statusDot: document.getElementById("statusDot"),
         supportBadge: document.getElementById("supportBadge"),
@@ -572,10 +583,20 @@
         }
       }
 
+      function normalizeCommon(text) {
+        return String(text)
+          .normalize("NFKC")
+          .replace(/[、，,。．・/｜|＋+]/g, " ")
+          .replace(/(?:ポイント|点)/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
       function normalizeJapaneseNumbers(text) {
         const replacements = [
           [/インナーテン/g, " X "],
           [/インナー/g, " X "],
+          [/じゅってん|ジュッテン/g, " 10 "],
           [/じゅう|ジュウ|十/g, " 10 "],
           [/きゅう|キュウ|九/g, " 9 "],
           [/はち|ハチ|八/g, " 8 "],
@@ -589,10 +610,30 @@
           [/れい|レイ|ゼロ|零/g, " 0 "]
         ];
 
-        let normalized = String(text)
-          .replace(/[、，,。．・/｜|＋+]/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
+        let normalized = normalizeCommon(text);
+        for (const [pattern, replacement] of replacements) {
+          normalized = normalized.replace(pattern, replacement);
+        }
+        return normalized.replace(/\s+/g, " ").trim();
+      }
+
+      function normalizeEnglishNumbers(text) {
+        let normalized = normalizeCommon(text).toLowerCase();
+        const replacements = [
+          [/\binner\s+ten\b/g, " X "],
+          [/\binner\b/g, " X "],
+          [/\bten(?:\s+points?)?\b/g, " 10 "],
+          [/\bnine\b/g, " 9 "],
+          [/\beight\b/g, " 8 "],
+          [/\bseven\b/g, " 7 "],
+          [/\bsix\b/g, " 6 "],
+          [/\bfive\b/g, " 5 "],
+          [/\bfour\b/g, " 4 "],
+          [/\bthree\b/g, " 3 "],
+          [/\btwo\b/g, " 2 "],
+          [/\bone\b/g, " 1 "],
+          [/\bzero\b/g, " 0 "]
+        ];
 
         for (const [pattern, replacement] of replacements) {
           normalized = normalized.replace(pattern, replacement);
@@ -601,29 +642,73 @@
       }
 
       function parseTranscript(transcript) {
-        const normalized = normalizeJapaneseNumbers(transcript);
+        const isEnglish = els.languageSelect.value === "en-US";
+        const normalized = isEnglish
+          ? normalizeEnglishNumbers(transcript)
+          : normalizeJapaneseNumbers(transcript);
 
-        // 「エックス」「X」は意図的に対象外。
+        // NFKC変換と「点」の除去により、10点・１０点・十点も10になる。
         const tokens = normalized.match(/(?:^|\s)(10|[0-9]|X)(?=\s|$)/g) || [];
-        return tokens.map(t => t.trim());
+        return tokens.map(token => token.trim());
       }
 
-      function processTranscript(transcript) {
-        const now = Date.now();
-        const clean = transcript.trim();
-
-        // 同一結果の短時間重複登録を抑止
-        if (clean === state.lastTranscript && now - state.lastProcessedAt < 1200) return;
-        state.lastTranscript = clean;
-        state.lastProcessedAt = now;
-
-        const scores = parseTranscript(clean);
+      function processScores(scores, transcript, mode) {
         if (scores.length === 0) {
-          setMessage(`認識結果「${clean}」から有効なスコアを確認できませんでした。`, "warning");
-          return;
+          if (mode === "final") {
+            setMessage(`認識結果「${transcript.trim()}」から有効なスコアを確認できませんでした。`, "warning");
+          }
+          return false;
         }
 
         scores.forEach(score => addScore(score, "voice"));
+        return true;
+      }
+
+      function clearResultStates() {
+        for (const item of state.resultStates.values()) {
+          if (item.timer) clearTimeout(item.timer);
+        }
+        state.resultStates.clear();
+      }
+
+      function handleRecognitionResult(result, resultIndex) {
+        const transcript = result[0].transcript.trim();
+        const scores = parseTranscript(transcript);
+        const key = `${state.recognitionSession}:${resultIndex}`;
+        const existing = state.resultStates.get(key) || {
+          committed: false,
+          signature: "",
+          timer: null
+        };
+
+        if (existing.committed) return;
+
+        const signature = scores.join("|");
+        if (result.isFinal) {
+          if (existing.timer) clearTimeout(existing.timer);
+          const committed = processScores(scores, transcript, "final");
+          existing.committed = committed;
+          existing.signature = signature;
+          existing.timer = null;
+          state.resultStates.set(key, existing);
+          return;
+        }
+
+        // 中間結果が有効な点数になった時点で短い安定待ちを置き、確定結果を待たず入力する。
+        if (scores.length === 0) return;
+        if (existing.signature === signature && existing.timer) return;
+        if (existing.timer) clearTimeout(existing.timer);
+
+        existing.signature = signature;
+        existing.timer = setTimeout(() => {
+          const latest = state.resultStates.get(key);
+          if (!latest || latest.committed || latest.signature !== signature) return;
+          const committed = processScores(scores, transcript, "interim");
+          latest.committed = committed;
+          latest.timer = null;
+          state.resultStates.set(key, latest);
+        }, 180);
+        state.resultStates.set(key, existing);
       }
 
       function setupRecognition() {
@@ -636,22 +721,25 @@
 
         els.supportBadge.textContent = "音声認識対応";
         const recognition = new SpeechRecognition();
-        recognition.lang = "ja-JP";
+        recognition.lang = els.languageSelect.value;
         recognition.continuous = true;
-        recognition.interimResults = false;
+        recognition.interimResults = true;
         recognition.maxAlternatives = 1;
 
         recognition.onstart = () => {
+          state.recognitionSession += 1;
+          clearResultStates();
           state.listening = true;
           updateListeningUI();
-          setMessage("音声入力中です。数字または「インナー」「インナーテン」を読み上げてください。", "info");
+          const guide = els.languageSelect.value === "en-US"
+            ? "Speak zero through ten, inner, or inner ten."
+            : "数字、または「インナー」「インナーテン」を読み上げてください。";
+          setMessage(`音声入力中です。${guide}`, "info");
         };
 
         recognition.onresult = event => {
           for (let i = event.resultIndex; i < event.results.length; i += 1) {
-            if (event.results[i].isFinal) {
-              processTranscript(event.results[i][0].transcript);
-            }
+            handleRecognitionResult(event.results[i], i);
           }
         };
 
@@ -663,6 +751,7 @@
         };
 
         recognition.onend = () => {
+          clearResultStates();
           state.listening = false;
           updateListeningUI();
           if (state.restartAfterEnd) {
@@ -712,6 +801,18 @@
       }
 
       els.listenBtn.addEventListener("click", toggleListening);
+
+      els.languageSelect.addEventListener("change", () => {
+        if (state.listening && state.recognition) {
+          state.restartAfterEnd = false;
+          state.recognition.stop();
+        }
+        if (state.recognition) {
+          state.recognition.lang = els.languageSelect.value;
+        }
+        const label = els.languageSelect.value === "en-US" ? "English" : "日本語";
+        setMessage(`音声認識言語を${label}に変更しました。`, "ok");
+      });
 
       els.undoBtn.addEventListener("click", () => {
         if (state.current.length === 0) return;

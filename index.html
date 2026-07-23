@@ -397,7 +397,7 @@
   <main class="app">
     <div class="topbar">
       <h1>5発スコア</h1>
-      <span class="version">v4</span>
+      <span class="version">v5</span>
     </div>
 
     <section class="panel" aria-labelledby="input-heading">
@@ -437,7 +437,7 @@
 
       <div class="action-row">
         <button id="undoBtn" class="secondary" type="button">1つ戻す</button>
-        <button id="clearInputBtn" class="danger" type="button">入力中をクリア</button>
+        <button id="clearInputBtn" class="danger" type="button">現在欄をクリア</button>
       </div>
 
       <div class="manual-title">手動入力</div>
@@ -462,7 +462,7 @@
     <details>
       <summary>認識ルール・注意事項</summary>
       <div class="details-body">
-        日本語では「じゅう」「じゅってん」「10点」「十点」をすべて10として扱います。Xは「インナー」「インナーテン」のみです。「エックス」や文字のXはXとして扱いません。複数の点数を続けて読み上げることもできます。入力中の5発と履歴はこの端末内に保存されます。
+        日本語では「じゅう」「じゅってん」「10点」「十点」をすべて10として扱います。Xは「インナー」「インナーテン」のみです。「エックス」や文字のXはXとして扱いません。複数の点数を続けて読み上げることもできます。5発完了後も結果は現在欄に残り、次の点数が入力された時点で履歴へ移動します。現在欄と履歴はこの端末内に保存されます。
       </div>
     </details>
     <div id="offlineNote" class="offline-note"></div>
@@ -472,8 +472,9 @@
     (() => {
       "use strict";
 
-      const APP_VERSION = "4.0.0";
-      const STATE_KEY = "voice-score-calculator-state-v4";
+      const APP_VERSION = "5.0.0";
+      const STATE_KEY = "voice-score-calculator-state-v5";
+      const PREVIOUS_STATE_KEY = "voice-score-calculator-state-v4";
       const LEGACY_HISTORY_KEY = "voice-score-calculator-history-v1";
       const MAX_HISTORY = 100;
       const INTERIM_STABLE_MS = 240;
@@ -482,6 +483,7 @@
 
       const els = {
         slots: document.getElementById("scoreSlots"),
+        inputHeading: document.getElementById("input-heading"),
         roundCount: document.getElementById("roundCount"),
         currentTotal: document.getElementById("currentTotal"),
         currentX: document.getElementById("currentX"),
@@ -504,6 +506,7 @@
         current: initial.current,
         history: initial.history,
         language: initial.language,
+        completedAt: initial.completedAt,
         recognition: null,
         listening: false,
         shouldRestart: false,
@@ -538,22 +541,28 @@
       }
 
       function loadState() {
-        try {
-          const stored = JSON.parse(localStorage.getItem(STATE_KEY) || "null");
-          if (stored && typeof stored === "object") {
-            return {
-              current: sanitizeScores(stored.current),
-              history: sanitizeHistory(stored.history),
-              language: stored.language === "en-US" ? "en-US" : "ja-JP"
-            };
-          }
-        } catch {}
+        for (const key of [STATE_KEY, PREVIOUS_STATE_KEY]) {
+          try {
+            const stored = JSON.parse(localStorage.getItem(key) || "null");
+            if (stored && typeof stored === "object") {
+              const current = sanitizeScores(stored.current);
+              return {
+                current,
+                history: sanitizeHistory(stored.history),
+                language: stored.language === "en-US" ? "en-US" : "ja-JP",
+                completedAt: current.length === 5 && typeof stored.completedAt === "string"
+                  ? stored.completedAt
+                  : (current.length === 5 ? new Date().toISOString() : null)
+              };
+            }
+          } catch {}
+        }
 
         try {
           const legacy = JSON.parse(localStorage.getItem(LEGACY_HISTORY_KEY) || "[]");
-          return { current: [], history: sanitizeHistory(legacy), language: "ja-JP" };
+          return { current: [], history: sanitizeHistory(legacy), language: "ja-JP", completedAt: null };
         } catch {
-          return { current: [], history: [], language: "ja-JP" };
+          return { current: [], history: [], language: "ja-JP", completedAt: null };
         }
       }
 
@@ -563,7 +572,8 @@
             version: APP_VERSION,
             current: state.current,
             history: state.history.slice(0, MAX_HISTORY),
-            language: state.language
+            language: state.language,
+            completedAt: state.completedAt
           }));
         } catch {}
       }
@@ -597,6 +607,7 @@
         }
 
         els.roundCount.textContent = `${state.current.length} / 5`;
+        els.inputHeading.textContent = state.current.length === 5 ? "5発の計算結果" : "現在の5発";
         els.currentTotal.textContent = String(totalOf(state.current));
         els.currentX.textContent = String(xCountOf(state.current));
         els.undoBtn.disabled = state.current.length === 0;
@@ -664,39 +675,41 @@
         });
       }
 
-      function completeRoundIfNeeded() {
-        if (state.current.length < 5) return;
+      function moveCompletedRoundToHistory() {
+        if (state.current.length !== 5) return false;
 
-        const values = state.current.slice(0, 5);
-        const item = {
+        const values = state.current.slice();
+        state.history.unshift({
           values,
           total: totalOf(values),
           xCount: xCountOf(values),
-          createdAt: new Date().toISOString()
-        };
-
-        state.history.unshift(item);
+          createdAt: state.completedAt || new Date().toISOString()
+        });
         state.history = state.history.slice(0, MAX_HISTORY);
-        state.current = state.current.slice(5);
-        saveState();
-        renderCurrent();
-        renderHistory();
-        setMessage(`${values.join(" + ")} → ${item.total}（X = ${item.xCount}）`, "ok");
-
-        if (state.current.length >= 5) completeRoundIfNeeded();
+        state.current = [];
+        state.completedAt = null;
+        return true;
       }
 
       function addScore(value, options = {}) {
         const normalized = String(value);
         if (!VALID_SCORES.has(normalized)) return false;
 
+        const movedPrevious = moveCompletedRoundToHistory();
         state.current.push(normalized);
+
+        if (state.current.length === 5) {
+          state.completedAt = new Date().toISOString();
+        }
+
         saveState();
         renderCurrent();
-        completeRoundIfNeeded();
+        if (movedPrevious) renderHistory();
 
-        if (state.current.length > 0 && state.current.length < 5) {
-          const prefix = options.transcript ? `認識「${options.transcript}」→ ` : "";
+        const prefix = options.transcript ? `認識「${options.transcript}」→ ` : "";
+        if (state.current.length === 5) {
+          setMessage(`${state.current.join(" + ")} → ${totalOf(state.current)}（X = ${xCountOf(state.current)}）`, "ok");
+        } else {
           setMessage(`${prefix}${normalized}を入力。残り${5 - state.current.length}発。`, "info");
         }
         return true;
@@ -990,6 +1003,7 @@
       els.undoBtn.addEventListener("click", () => {
         if (state.current.length === 0) return;
         const removed = state.current.pop();
+        state.completedAt = null;
         saveState();
         renderCurrent();
         setMessage(`${removed}を取り消しました。`, "info");
@@ -999,9 +1013,10 @@
         if (state.current.length === 0) return;
         if (!confirm("入力中の点数をすべてクリアしますか？")) return;
         state.current = [];
+        state.completedAt = null;
         saveState();
         renderCurrent();
-        setMessage("入力中の点数をクリアしました。", "ok");
+        setMessage("現在欄をクリアしました。", "ok");
       });
 
       els.clearHistoryBtn.addEventListener("click", () => {
@@ -1029,7 +1044,6 @@
       buildManualButtons();
       renderCurrent();
       renderHistory();
-      completeRoundIfNeeded();
       updateOnlineStatus();
       setupRecognition();
 

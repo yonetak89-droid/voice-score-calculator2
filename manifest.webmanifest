@@ -1,26 +1,10 @@
 {
-  "name": "5発スコア - 音声計算",
-  "short_name": "5発スコア",
-  "start_url": "./",
-  "scope": "./",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#eef2f7",
-  "theme_color": "#0b1324",
-  "lang": "ja-JP",
-  "description": "ピストル競技向け。0〜10とインナーを音声入力し、5発ごとに自動計算し、次の入力時に完了結果を履歴へ移します。",
-  "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ]
+  "name":"5発スコア",
+  "short_name":"5発スコア",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#f1f5f9",
+  "theme_color":"#0f172a",
+  "lang":"ja-JP",
+  "description":"ピストル競技向け5発単位音声スコア計算アプリ"
 }

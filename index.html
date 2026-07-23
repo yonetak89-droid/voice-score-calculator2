@@ -1,32 +1,34 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f172a" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="音声スコア計算" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <title>音声スコア計算</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1324">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="5発スコア">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>5発スコア</title>
   <style>
     :root {
       color-scheme: light;
-      --bg: #f3f6fb;
+      --bg: #eef2f7;
       --panel: #ffffff;
       --text: #111827;
-      --muted: #6b7280;
-      --primary: #0f172a;
-      --primary-2: #1e3a8a;
-      --danger: #b91c1c;
-      --danger-bg: #fee2e2;
-      --line: #dbe2ea;
-      --ok: #166534;
-      --ok-bg: #dcfce7;
-      --warning: #92400e;
-      --warning-bg: #fef3c7;
-      --shadow: 0 8px 24px rgba(15, 23, 42, .08);
+      --muted: #667085;
+      --line: #d7dee8;
+      --navy: #0b1324;
+      --blue: #174ea6;
+      --blue-soft: #eaf2ff;
+      --red: #b42318;
+      --red-soft: #fff0ee;
+      --green: #067647;
+      --green-soft: #ecfdf3;
+      --amber: #9a6700;
+      --amber-soft: #fff8e1;
       --radius: 18px;
+      --shadow: 0 10px 28px rgba(15, 23, 42, .08);
     }
 
     * { box-sizing: border-box; }
@@ -39,432 +41,531 @@
       font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
     }
 
+    button, select { font: inherit; }
     button {
-      font: inherit;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
+    button:disabled { opacity: .42; }
 
-    .app {
-      width: min(760px, 100%);
-      margin: 0 auto;
-      padding: max(18px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom));
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
-    header {
-      margin-bottom: 14px;
+    .app {
+      width: min(720px, 100%);
+      margin: 0 auto;
+      padding: max(16px, env(safe-area-inset-top)) 14px max(28px, env(safe-area-inset-bottom));
+    }
+
+    .topbar {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
     }
 
     h1 {
       margin: 0;
-      font-size: clamp(1.55rem, 6vw, 2.1rem);
+      font-size: clamp(1.5rem, 7vw, 2rem);
       letter-spacing: .02em;
     }
 
-    .subtitle {
-      margin: 7px 0 0;
+    .version {
       color: var(--muted);
-      font-size: .95rem;
-      line-height: 1.5;
+      font-size: .78rem;
+      font-weight: 700;
     }
 
     .panel {
       background: var(--panel);
-      border: 1px solid rgba(219,226,234,.9);
+      border: 1px solid rgba(215, 222, 232, .95);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 18px;
-      margin-top: 14px;
+      padding: 16px;
+      margin-top: 12px;
     }
 
-    .status-row,
+    .control-head,
     .section-head,
-    .button-row,
-    .history-actions {
+    .status-line,
+    .action-row,
+    .history-top {
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
-    .status-row,
-    .section-head {
-      justify-content: space-between;
-    }
+    .control-head,
+    .section-head,
+    .history-top { justify-content: space-between; }
 
-    .status {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 700;
+    .status-line {
+      min-width: 0;
+      font-weight: 800;
     }
 
     .status-dot {
-      width: 12px;
-      height: 12px;
+      width: 11px;
+      height: 11px;
       border-radius: 999px;
-      background: #9ca3af;
-      box-shadow: 0 0 0 5px rgba(156,163,175,.15);
+      background: #98a2b3;
+      box-shadow: 0 0 0 5px rgba(152, 162, 179, .14);
+      flex: 0 0 auto;
     }
 
     .status-dot.listening {
-      background: #dc2626;
-      box-shadow: 0 0 0 5px rgba(220,38,38,.15);
-      animation: pulse 1.2s infinite;
+      background: #d92d20;
+      box-shadow: 0 0 0 5px rgba(217, 45, 32, .14);
+      animation: pulse 1.1s infinite;
     }
 
     @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.18); opacity: .7; }
+      50% { transform: scale(1.16); opacity: .72; }
     }
 
-    .primary {
+    @media (prefers-reduced-motion: reduce) {
+      .status-dot.listening { animation: none; }
+    }
+
+    .language-select {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fff;
+      padding: 7px 10px;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .listen-btn {
       width: 100%;
-      min-height: 58px;
+      min-height: 62px;
+      margin-top: 14px;
       border: 0;
       border-radius: 15px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-2));
-      color: white;
-      font-size: 1.08rem;
-      font-weight: 800;
-      margin-top: 16px;
-      padding: 13px 18px;
+      background: linear-gradient(135deg, var(--navy), #1d428a);
+      color: #fff;
+      font-size: 1.12rem;
+      font-weight: 900;
+      letter-spacing: .02em;
     }
 
-    .primary.active {
-      background: linear-gradient(135deg, #7f1d1d, #dc2626);
+    .listen-btn.active {
+      background: linear-gradient(135deg, #7a271a, #d92d20);
+    }
+
+    .round-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 16px;
+      gap: 12px;
+    }
+
+    .round-label { font-weight: 900; }
+    .round-count {
+      color: var(--muted);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
     }
 
     .score-slots {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 8px;
-      margin: 16px 0 14px;
+      gap: 7px;
+      margin-top: 9px;
     }
 
     .slot {
-      min-height: 64px;
+      min-height: 65px;
       display: grid;
       place-items: center;
-      border-radius: 14px;
       border: 2px solid var(--line);
+      border-radius: 14px;
       background: #f8fafc;
-      font-size: clamp(1.25rem, 6vw, 1.8rem);
-      font-weight: 900;
+      font-size: clamp(1.25rem, 7vw, 1.85rem);
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
     }
 
     .slot.filled {
-      border-color: #93c5fd;
-      background: #eff6ff;
+      border-color: #84adff;
+      background: var(--blue-soft);
     }
 
-    .metrics {
+    .summary-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: 2fr 1fr;
       gap: 8px;
-      margin-top: 8px;
+      margin-top: 10px;
     }
 
-    .metric {
+    .summary-card {
       background: #f8fafc;
+      border: 1px solid #eef1f5;
       border-radius: 13px;
-      padding: 12px 8px;
-      text-align: center;
+      padding: 11px 12px;
     }
 
-    .metric-label {
+    .summary-label {
       color: var(--muted);
       font-size: .78rem;
-      margin-bottom: 4px;
+      font-weight: 700;
     }
 
-    .metric-value {
-      font-size: 1.15rem;
-      font-weight: 900;
+    .summary-value {
+      margin-top: 2px;
+      font-size: 1.35rem;
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
     }
 
-    .button-row {
-      margin-top: 14px;
-    }
+    .action-row { margin-top: 12px; }
 
     .secondary,
-    .danger-outline,
-    .icon-btn {
-      border-radius: 13px;
+    .danger,
+    .manual-btn,
+    .delete-btn {
       min-height: 48px;
-      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 850;
       background: #fff;
-      font-weight: 800;
     }
 
     .secondary {
       flex: 1;
-      border: 1px solid #94a3b8;
-      color: #334155;
+      border: 1px solid #98a2b3;
+      color: #344054;
     }
 
-    .danger-outline {
-      flex: 1.4;
-      border: 1px solid #fca5a5;
-      color: var(--danger);
-      background: #fff7f7;
+    .danger {
+      flex: 1.35;
+      border: 1px solid #f5b7b1;
+      color: var(--red);
+      background: #fff8f7;
     }
 
     .manual-title {
-      margin: 18px 0 8px;
-      font-weight: 800;
-      font-size: .95rem;
+      margin: 16px 0 8px;
+      font-size: .9rem;
+      font-weight: 900;
+      color: #344054;
     }
 
     .manual-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
+      gap: 7px;
     }
 
     .manual-btn {
       border: 1px solid #cbd5e1;
-      background: #fff;
-      min-height: 48px;
-      border-radius: 12px;
-      font-size: 1.05rem;
-      font-weight: 800;
+      font-size: 1.06rem;
+      font-variant-numeric: tabular-nums;
     }
 
     .manual-btn.x {
-      background: #eff6ff;
-      border-color: #93c5fd;
+      border-color: #84adff;
+      background: var(--blue-soft);
+      color: var(--blue);
     }
 
     .message {
-      margin-top: 14px;
+      margin-top: 12px;
       border-radius: 12px;
-      padding: 11px 13px;
-      line-height: 1.5;
-      font-size: .92rem;
-    }
-
-    .message.info { background: #eff6ff; color: #1e3a8a; }
-    .message.ok { background: var(--ok-bg); color: var(--ok); }
-    .message.warning { background: var(--warning-bg); color: var(--warning); }
-    .message.error { background: var(--danger-bg); color: var(--danger); }
-
-    .history-title {
-      margin: 0;
-      font-size: 1.2rem;
-    }
-
-    .count {
-      color: var(--muted);
+      padding: 10px 12px;
+      line-height: 1.45;
       font-size: .9rem;
+      min-height: 42px;
+    }
+
+    .message.info { background: var(--blue-soft); color: #1849a9; }
+    .message.ok { background: var(--green-soft); color: var(--green); }
+    .message.warning { background: var(--amber-soft); color: var(--amber); }
+    .message.error { background: var(--red-soft); color: var(--red); }
+
+    h2 {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+
+    .history-count {
+      color: var(--muted);
+      font-size: .88rem;
+      font-weight: 700;
     }
 
     .history-list {
       display: grid;
-      gap: 10px;
-      margin-top: 14px;
+      gap: 9px;
+      margin-top: 12px;
     }
 
     .history-empty {
       color: var(--muted);
       text-align: center;
-      padding: 24px 8px;
       border: 1px dashed #cbd5e1;
-      border-radius: 14px;
+      border-radius: 13px;
+      padding: 22px 8px;
     }
 
     .history-item {
       border: 1px solid var(--line);
       border-radius: 14px;
-      padding: 14px;
-      background: #fbfdff;
+      padding: 13px;
+      background: #fcfdff;
     }
 
-    .history-item-top {
-      display: flex;
-      align-items: start;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
+    .history-body { min-width: 0; }
     .expression {
-      font-weight: 800;
-      line-height: 1.5;
+      font-weight: 850;
+      line-height: 1.45;
       word-break: break-word;
     }
 
     .result {
-      margin-top: 7px;
-      font-size: 1.4rem;
+      margin-top: 5px;
+      font-size: 1.35rem;
       font-weight: 950;
+      font-variant-numeric: tabular-nums;
     }
 
     .timestamp {
+      margin-top: 4px;
       color: var(--muted);
-      font-size: .78rem;
-      margin-top: 7px;
+      font-size: .76rem;
     }
 
-    .icon-btn {
-      border: 1px solid #fecaca;
-      color: var(--danger);
-      background: #fff;
-      min-width: 64px;
+    .delete-btn {
+      min-width: 58px;
       min-height: 42px;
+      padding: 8px 10px;
+      border: 1px solid #f5b7b1;
+      color: var(--red);
+      flex: 0 0 auto;
     }
 
-    .history-actions {
+    .history-footer {
+      display: flex;
       justify-content: flex-end;
-      margin-top: 14px;
+      margin-top: 12px;
     }
 
-    .history-actions .danger-outline {
-      flex: none;
-    }
+    .history-footer .danger { flex: none; }
 
-    .help {
+    details {
+      margin-top: 12px;
       color: var(--muted);
-      font-size: .86rem;
+      font-size: .84rem;
       line-height: 1.65;
-      margin: 14px 2px 0;
     }
 
-    @media (max-width: 460px) {
-      .metrics { grid-template-columns: 1fr 1fr 1fr; }
-      .button-row { flex-direction: column; }
-      .button-row button { width: 100%; }
-      .manual-grid { grid-template-columns: repeat(4, 1fr); }
-      .panel { padding: 15px; }
+    summary {
+      cursor: pointer;
+      color: #475467;
+      font-weight: 800;
+      padding: 3px 0;
+    }
+
+    .details-body { margin-top: 7px; }
+
+    .offline-note {
+      margin-top: 9px;
+      text-align: center;
+      color: var(--muted);
+      font-size: .76rem;
+    }
+
+    @media (max-width: 420px) {
+      .panel { padding: 14px; }
+      .action-row { gap: 7px; }
+      .secondary, .danger { padding-inline: 9px; font-size: .92rem; }
     }
   </style>
 </head>
 <body>
   <main class="app">
-    <header>
-      <h1>音声スコア計算</h1>
-      <p class="subtitle">0〜10、または「インナー」「インナーテン」を読み上げてください。「10点」と認識された場合も10として計算します。</p>
-    </header>
+    <div class="topbar">
+      <h1>5発スコア</h1>
+      <span class="version">v4</span>
+    </div>
 
     <section class="panel" aria-labelledby="input-heading">
-      <div class="status-row">
-        <div>
-          <div id="input-heading" style="font-weight:900;">現在の入力</div>
-          <div class="status" style="margin-top:7px;">
-            <span id="statusDot" class="status-dot"></span>
-            <span id="statusText">停止中</span>
-          </div>
+      <div class="control-head">
+        <div class="status-line">
+          <span id="statusDot" class="status-dot"></span>
+          <span id="statusText">停止中</span>
         </div>
-        <div id="supportBadge" class="count"></div>
+        <label>
+          <span class="visually-hidden">音声認識言語</span>
+          <select id="languageSelect" class="language-select" aria-label="音声認識言語">
+            <option value="ja-JP">日本語</option>
+            <option value="en-US">English</option>
+          </select>
+        </label>
       </div>
 
-      <button id="listenBtn" class="primary" type="button">音声入力を開始</button>
+      <button id="listenBtn" class="listen-btn" type="button">音声入力を開始</button>
 
-      <div style="margin-top:14px;">
-        <label for="languageSelect" style="display:block;font-weight:800;margin-bottom:7px;">音声認識言語</label>
-        <select id="languageSelect" style="width:100%;min-height:48px;border:1px solid #cbd5e1;border-radius:12px;padding:10px 12px;font:inherit;background:#fff;">
-          <option value="ja-JP">日本語</option>
-          <option value="en-US">English</option>
-        </select>
+      <div class="round-head">
+        <div id="input-heading" class="round-label">現在の5発</div>
+        <div id="roundCount" class="round-count">0 / 5</div>
       </div>
 
       <div id="scoreSlots" class="score-slots" aria-live="polite"></div>
 
-      <div class="metrics">
-        <div class="metric">
-          <div class="metric-label">入力数</div>
-          <div id="inputCount" class="metric-value">0 / 5</div>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-label">現在の合計</div>
+          <div id="currentTotal" class="summary-value">0</div>
         </div>
-        <div class="metric">
-          <div class="metric-label">現在の合計</div>
-          <div id="currentTotal" class="metric-value">0</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">X</div>
-          <div id="currentX" class="metric-value">0</div>
+        <div class="summary-card">
+          <div class="summary-label">X</div>
+          <div id="currentX" class="summary-value">0</div>
         </div>
       </div>
 
-      <div class="button-row">
+      <div class="action-row">
         <button id="undoBtn" class="secondary" type="button">1つ戻す</button>
-        <button id="clearInputBtn" class="danger-outline" type="button">入力中の数字をクリア</button>
+        <button id="clearInputBtn" class="danger" type="button">入力中をクリア</button>
       </div>
 
       <div class="manual-title">手動入力</div>
       <div id="manualGrid" class="manual-grid"></div>
 
-      <div id="message" class="message info" role="status">
-        高速入力モード：中間認識結果から有効な点数を早期確定します。
+      <div id="message" class="message info" role="status" aria-live="polite">
+        0〜10、または「インナー」「インナーテン」を入力します。
       </div>
     </section>
 
     <section class="panel" aria-labelledby="history-heading">
       <div class="section-head">
-        <h2 id="history-heading" class="history-title">5発単位の履歴</h2>
-        <span id="historyCount" class="count">0件</span>
+        <h2 id="history-heading">5発履歴</h2>
+        <span id="historyCount" class="history-count">0件</span>
       </div>
-
       <div id="historyList" class="history-list"></div>
-
-      <div class="history-actions">
-        <button id="clearHistoryBtn" class="danger-outline" type="button">履歴をすべて消去</button>
+      <div class="history-footer">
+        <button id="clearHistoryBtn" class="danger" type="button">履歴をすべて消去</button>
       </div>
     </section>
 
-    <p class="help">
-      日本語ではXを「インナー」「インナーテン」、英語では「inner」「inner ten」として認識します。「エックス」や英字のXはXとして扱いません。
-      履歴はこの端末のブラウザ内に保存されます。
-    </p>
+    <details>
+      <summary>認識ルール・注意事項</summary>
+      <div class="details-body">
+        日本語では「じゅう」「じゅってん」「10点」「十点」をすべて10として扱います。Xは「インナー」「インナーテン」のみです。「エックス」や文字のXはXとして扱いません。複数の点数を続けて読み上げることもできます。入力中の5発と履歴はこの端末内に保存されます。
+      </div>
+    </details>
+    <div id="offlineNote" class="offline-note"></div>
   </main>
 
   <script>
     (() => {
       "use strict";
 
-      const STORAGE_KEY = "voice-score-calculator-history-v1";
-      const MAX_HISTORY = 200;
+      const APP_VERSION = "4.0.0";
+      const STATE_KEY = "voice-score-calculator-state-v4";
+      const LEGACY_HISTORY_KEY = "voice-score-calculator-history-v1";
+      const MAX_HISTORY = 100;
+      const INTERIM_STABLE_MS = 240;
+      const VALID_SCORES = new Set(["0","1","2","3","4","5","6","7","8","9","10","X"]);
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-      const state = {
-        current: [],
-        history: loadHistory(),
-        recognition: null,
-        listening: false,
-        restartAfterEnd: false,
-        lastProcessedAt: 0,
-        lastTranscript: "",
-        resultStates: new Map(),
-        recognitionSession: 0
-      };
 
       const els = {
         slots: document.getElementById("scoreSlots"),
-        inputCount: document.getElementById("inputCount"),
+        roundCount: document.getElementById("roundCount"),
         currentTotal: document.getElementById("currentTotal"),
         currentX: document.getElementById("currentX"),
         listenBtn: document.getElementById("listenBtn"),
         languageSelect: document.getElementById("languageSelect"),
         statusText: document.getElementById("statusText"),
         statusDot: document.getElementById("statusDot"),
-        supportBadge: document.getElementById("supportBadge"),
         undoBtn: document.getElementById("undoBtn"),
         clearInputBtn: document.getElementById("clearInputBtn"),
         manualGrid: document.getElementById("manualGrid"),
         message: document.getElementById("message"),
         historyList: document.getElementById("historyList"),
         historyCount: document.getElementById("historyCount"),
-        clearHistoryBtn: document.getElementById("clearHistoryBtn")
+        clearHistoryBtn: document.getElementById("clearHistoryBtn"),
+        offlineNote: document.getElementById("offlineNote")
       };
 
-      function loadHistory() {
+      const initial = loadState();
+      const state = {
+        current: initial.current,
+        history: initial.history,
+        language: initial.language,
+        recognition: null,
+        listening: false,
+        shouldRestart: false,
+        recognitionSession: 0,
+        resultStates: new Map(),
+        wakeLock: null,
+        reloadTriggered: false
+      };
+
+      function safeArray(value) {
+        return Array.isArray(value) ? value : [];
+      }
+
+      function sanitizeScores(values) {
+        return safeArray(values)
+          .map(value => String(value))
+          .filter(value => VALID_SCORES.has(value))
+          .slice(0, 5);
+      }
+
+      function sanitizeHistory(items) {
+        return safeArray(items).flatMap(item => {
+          const values = sanitizeScores(item && item.values);
+          if (values.length !== 5) return [];
+          return [{
+            values,
+            total: totalOf(values),
+            xCount: xCountOf(values),
+            createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString()
+          }];
+        }).slice(0, MAX_HISTORY);
+      }
+
+      function loadState() {
         try {
-          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-          return Array.isArray(parsed) ? parsed : [];
+          const stored = JSON.parse(localStorage.getItem(STATE_KEY) || "null");
+          if (stored && typeof stored === "object") {
+            return {
+              current: sanitizeScores(stored.current),
+              history: sanitizeHistory(stored.history),
+              language: stored.language === "en-US" ? "en-US" : "ja-JP"
+            };
+          }
+        } catch {}
+
+        try {
+          const legacy = JSON.parse(localStorage.getItem(LEGACY_HISTORY_KEY) || "[]");
+          return { current: [], history: sanitizeHistory(legacy), language: "ja-JP" };
         } catch {
-          return [];
+          return { current: [], history: [], language: "ja-JP" };
         }
       }
 
-      function saveHistory() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.history.slice(0, MAX_HISTORY)));
+      function saveState() {
+        try {
+          localStorage.setItem(STATE_KEY, JSON.stringify({
+            version: APP_VERSION,
+            current: state.current,
+            history: state.history.slice(0, MAX_HISTORY),
+            language: state.language
+          }));
+        } catch {}
       }
 
       function scoreValue(value) {
@@ -476,33 +577,36 @@
       }
 
       function xCountOf(values) {
-        return values.filter(v => v === "X").length;
+        return values.filter(value => value === "X").length;
       }
 
       function setMessage(text, type = "info") {
-        els.message.className = "message " + type;
+        els.message.className = `message ${type}`;
         els.message.textContent = text;
       }
 
       function renderCurrent() {
-        els.slots.innerHTML = "";
-        for (let i = 0; i < 5; i += 1) {
-          const div = document.createElement("div");
-          const value = state.current[i];
-          div.className = "slot" + (value !== undefined ? " filled" : "");
-          div.textContent = value !== undefined ? value : "＿";
-          els.slots.appendChild(div);
+        els.slots.replaceChildren();
+        for (let index = 0; index < 5; index += 1) {
+          const slot = document.createElement("div");
+          const value = state.current[index];
+          slot.className = `slot${value !== undefined ? " filled" : ""}`;
+          slot.textContent = value !== undefined ? value : "—";
+          slot.setAttribute("aria-label", `${index + 1}発目 ${value !== undefined ? value : "未入力"}`);
+          els.slots.appendChild(slot);
         }
-        els.inputCount.textContent = `${state.current.length} / 5`;
-        els.currentTotal.textContent = totalOf(state.current);
-        els.currentX.textContent = xCountOf(state.current);
+
+        els.roundCount.textContent = `${state.current.length} / 5`;
+        els.currentTotal.textContent = String(totalOf(state.current));
+        els.currentX.textContent = String(xCountOf(state.current));
         els.undoBtn.disabled = state.current.length === 0;
         els.clearInputBtn.disabled = state.current.length === 0;
       }
 
       function renderHistory() {
         els.historyCount.textContent = `${state.history.length}件`;
-        els.historyList.innerHTML = "";
+        els.clearHistoryBtn.disabled = state.history.length === 0;
+        els.historyList.replaceChildren();
 
         if (state.history.length === 0) {
           const empty = document.createElement("div");
@@ -517,9 +621,11 @@
           card.className = "history-item";
 
           const top = document.createElement("div");
-          top.className = "history-item-top";
+          top.className = "history-top";
 
           const body = document.createElement("div");
+          body.className = "history-body";
+
           const expression = document.createElement("div");
           expression.className = "expression";
           expression.textContent = item.values.join(" + ");
@@ -530,238 +636,239 @@
 
           const timestamp = document.createElement("div");
           timestamp.className = "timestamp";
-          timestamp.textContent = new Date(item.createdAt).toLocaleString("ja-JP");
-
-          body.append(expression, result, timestamp);
+          const date = new Date(item.createdAt);
+          timestamp.textContent = Number.isNaN(date.getTime()) ? "" : date.toLocaleString("ja-JP", {
+            month: "numeric",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+          });
 
           const del = document.createElement("button");
-          del.className = "icon-btn";
           del.type = "button";
+          del.className = "delete-btn";
           del.textContent = "削除";
           del.setAttribute("aria-label", `${index + 1}件目の履歴を削除`);
           del.addEventListener("click", () => {
             if (!confirm("この履歴を削除しますか？")) return;
             state.history.splice(index, 1);
-            saveHistory();
+            saveState();
             renderHistory();
             setMessage("履歴を1件削除しました。", "ok");
           });
 
+          body.append(expression, result, timestamp);
           top.append(body, del);
           card.appendChild(top);
           els.historyList.appendChild(card);
         });
       }
 
-      function addScore(value, source = "manual") {
-        if (!["0","1","2","3","4","5","6","7","8","9","10","X"].includes(String(value))) {
-          return;
-        }
+      function completeRoundIfNeeded() {
+        if (state.current.length < 5) return;
 
-        state.current.push(String(value));
+        const values = state.current.slice(0, 5);
+        const item = {
+          values,
+          total: totalOf(values),
+          xCount: xCountOf(values),
+          createdAt: new Date().toISOString()
+        };
+
+        state.history.unshift(item);
+        state.history = state.history.slice(0, MAX_HISTORY);
+        state.current = state.current.slice(5);
+        saveState();
         renderCurrent();
+        renderHistory();
+        setMessage(`${values.join(" + ")} → ${item.total}（X = ${item.xCount}）`, "ok");
 
-        if (state.current.length === 5) {
-          const values = [...state.current];
-          const item = {
-            values,
-            total: totalOf(values),
-            xCount: xCountOf(values),
-            createdAt: new Date().toISOString()
-          };
-          state.history.unshift(item);
-          state.history = state.history.slice(0, MAX_HISTORY);
-          saveHistory();
-          state.current = [];
-          renderCurrent();
-          renderHistory();
-          setMessage(`${values.join(" + ")} → ${item.total}（X = ${item.xCount}）`, "ok");
-          if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
-        } else {
-          const label = value === "X" ? "X" : value;
-          setMessage(`${label} を入力しました。残り ${5 - state.current.length} 発です。`, "info");
+        if (state.current.length >= 5) completeRoundIfNeeded();
+      }
+
+      function addScore(value, options = {}) {
+        const normalized = String(value);
+        if (!VALID_SCORES.has(normalized)) return false;
+
+        state.current.push(normalized);
+        saveState();
+        renderCurrent();
+        completeRoundIfNeeded();
+
+        if (state.current.length > 0 && state.current.length < 5) {
+          const prefix = options.transcript ? `認識「${options.transcript}」→ ` : "";
+          setMessage(`${prefix}${normalized}を入力。残り${5 - state.current.length}発。`, "info");
         }
-      }
-
-      function normalizeCommon(text) {
-        return String(text)
-          .normalize("NFKC")
-          .replace(/[、，,。．・/｜|＋+]/g, " ")
-          .replace(/(?:ポイント|点)/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-      }
-
-      function normalizeJapaneseNumbers(text) {
-        const replacements = [
-          [/インナーテン/g, " X "],
-          [/インナー/g, " X "],
-          [/じゅってん|ジュッテン/g, " 10 "],
-          [/じゅう|ジュウ|十/g, " 10 "],
-          [/きゅう|キュウ|九/g, " 9 "],
-          [/はち|ハチ|八/g, " 8 "],
-          [/なな|ナナ|しち|シチ|七/g, " 7 "],
-          [/ろく|ロク|六/g, " 6 "],
-          [/ご|ゴ|五/g, " 5 "],
-          [/よん|ヨン|し|シ|四/g, " 4 "],
-          [/さん|サン|三/g, " 3 "],
-          [/に|ニ|二/g, " 2 "],
-          [/いち|イチ|一/g, " 1 "],
-          [/れい|レイ|ゼロ|零/g, " 0 "]
-        ];
-
-        let normalized = normalizeCommon(text);
-        for (const [pattern, replacement] of replacements) {
-          normalized = normalized.replace(pattern, replacement);
-        }
-        return normalized.replace(/\s+/g, " ").trim();
-      }
-
-      function normalizeEnglishNumbers(text) {
-        let normalized = normalizeCommon(text).toLowerCase();
-        const replacements = [
-          [/\binner\s+ten\b/g, " X "],
-          [/\binner\b/g, " X "],
-          [/\bten(?:\s+points?)?\b/g, " 10 "],
-          [/\bnine\b/g, " 9 "],
-          [/\beight\b/g, " 8 "],
-          [/\bseven\b/g, " 7 "],
-          [/\bsix\b/g, " 6 "],
-          [/\bfive\b/g, " 5 "],
-          [/\bfour\b/g, " 4 "],
-          [/\bthree\b/g, " 3 "],
-          [/\btwo\b/g, " 2 "],
-          [/\bone\b/g, " 1 "],
-          [/\bzero\b/g, " 0 "]
-        ];
-
-        for (const [pattern, replacement] of replacements) {
-          normalized = normalized.replace(pattern, replacement);
-        }
-        return normalized.replace(/\s+/g, " ").trim();
-      }
-
-      function parseTranscript(transcript) {
-        const isEnglish = els.languageSelect.value === "en-US";
-        const normalized = isEnglish
-          ? normalizeEnglishNumbers(transcript)
-          : normalizeJapaneseNumbers(transcript);
-
-        // NFKC変換と「点」の除去により、10点・１０点・十点も10になる。
-        const tokens = normalized.match(/(?:^|\s)(10|[0-9]|X)(?=\s|$)/g) || [];
-        return tokens.map(token => token.trim());
-      }
-
-      function processScores(scores, transcript, mode) {
-        if (scores.length === 0) {
-          if (mode === "final") {
-            setMessage(`認識結果「${transcript.trim()}」から有効なスコアを確認できませんでした。`, "warning");
-          }
-          return false;
-        }
-
-        scores.forEach(score => addScore(score, "voice"));
         return true;
       }
 
-      function clearResultStates() {
+      function addScores(values, transcript = "") {
+        let added = 0;
+        values.forEach(value => {
+          if (addScore(value, { transcript: "" })) added += 1;
+        });
+        if (added > 0 && state.current.length > 0 && state.current.length < 5) {
+          const label = values.join("・");
+          const prefix = transcript ? `認識「${transcript}」→ ` : "";
+          setMessage(`${prefix}${label}を入力。残り${5 - state.current.length}発。`, "info");
+        }
+        return added;
+      }
+
+      function parseJapanese(transcript) {
+        const text = String(transcript).normalize("NFKC");
+        const patterns = [
+          { regex: /^(?:インナー|いんなー)[\s・、,]*(?:テン|てん|10)?/i, value: "X" },
+          { regex: /^(?:じゅってん|じゅうてん|ジュッテン|ジュウテン)/, value: "10" },
+          { regex: /^(?:じゅう|ジュウ|十)/, value: "10" },
+          { regex: /^(?:きゅう|キュウ|九)/, value: "9" },
+          { regex: /^(?:はち|ハチ|八)/, value: "8" },
+          { regex: /^(?:なな|ナナ|しち|シチ|七)/, value: "7" },
+          { regex: /^(?:ろく|ロク|六)/, value: "6" },
+          { regex: /^(?:ご|ゴ|五)/, value: "5" },
+          { regex: /^(?:よん|ヨン|四)/, value: "4" },
+          { regex: /^(?:さん|サン|三)/, value: "3" },
+          { regex: /^(?:に|ニ|二)/, value: "2" },
+          { regex: /^(?:いち|イチ|一)/, value: "1" },
+          { regex: /^(?:れい|レイ|ゼロ|零)/, value: "0" },
+          { regex: /^10/, value: "10" },
+          { regex: /^[0-9]/, value: null }
+        ];
+
+        const scores = [];
+        let position = 0;
+        while (position < text.length) {
+          const remaining = text.slice(position);
+          let matched = false;
+
+          for (const pattern of patterns) {
+            const match = remaining.match(pattern.regex);
+            if (!match) continue;
+            const value = pattern.value === null ? match[0] : pattern.value;
+            if (VALID_SCORES.has(value)) scores.push(value);
+            position += match[0].length;
+            matched = true;
+            break;
+          }
+
+          if (!matched) position += 1;
+        }
+        return scores;
+      }
+
+      function parseEnglish(transcript) {
+        const text = String(transcript).normalize("NFKC").toLowerCase();
+        const regex = /\binner(?:[\s-]*(?:ten|10))?\b|\bten\b|\bnine\b|\beight\b|\bseven\b|\bsix\b|\bfive\b|\bfour\b|\bthree\b|\btwo\b|\bone\b|\bzero\b|10|[0-9]/g;
+        const map = {
+          ten: "10", nine: "9", eight: "8", seven: "7", six: "6",
+          five: "5", four: "4", three: "3", two: "2", one: "1", zero: "0"
+        };
+
+        const scores = [];
+        for (const match of text.matchAll(regex)) {
+          const token = match[0].trim();
+          if (token.startsWith("inner")) scores.push("X");
+          else scores.push(map[token] || token);
+        }
+        return scores.filter(value => VALID_SCORES.has(value));
+      }
+
+      function parseTranscript(transcript) {
+        return state.language === "en-US" ? parseEnglish(transcript) : parseJapanese(transcript);
+      }
+
+      function commonPrefixLength(a, b) {
+        const limit = Math.min(a.length, b.length);
+        let index = 0;
+        while (index < limit && a[index] === b[index]) index += 1;
+        return index;
+      }
+
+      function clearRecognitionResultStates() {
         for (const item of state.resultStates.values()) {
           if (item.timer) clearTimeout(item.timer);
         }
         state.resultStates.clear();
       }
 
-      function handleRecognitionResult(result, resultIndex) {
-        const transcript = result[0].transcript.trim();
-        const scores = parseTranscript(transcript);
-        const key = `${state.recognitionSession}:${resultIndex}`;
-        const existing = state.resultStates.get(key) || {
-          committed: false,
-          signature: "",
-          timer: null
-        };
-
-        if (existing.committed) return;
-
-        const signature = scores.join("|");
-        if (result.isFinal) {
-          if (existing.timer) clearTimeout(existing.timer);
-          const committed = processScores(scores, transcript, "final");
-          existing.committed = committed;
-          existing.signature = signature;
-          existing.timer = null;
-          state.resultStates.set(key, existing);
-          return;
+      function commitNewTokens(entry, tokens, transcript) {
+        const prefix = commonPrefixLength(entry.committedTokens, tokens);
+        if (prefix < entry.committedTokens.length) {
+          setMessage("認識候補が途中で変更されました。必要なら「1つ戻す」で修正してください。", "warning");
+          return 0;
         }
 
-        // 中間結果が有効な点数になった時点で短い安定待ちを置き、確定結果を待たず入力する。
-        if (scores.length === 0) return;
-        if (existing.signature === signature && existing.timer) return;
-        if (existing.timer) clearTimeout(existing.timer);
+        const newTokens = tokens.slice(entry.committedTokens.length);
+        if (newTokens.length === 0) return 0;
 
-        existing.signature = signature;
-        existing.timer = setTimeout(() => {
-          const latest = state.resultStates.get(key);
-          if (!latest || latest.committed || latest.signature !== signature) return;
-          const committed = processScores(scores, transcript, "interim");
-          latest.committed = committed;
-          latest.timer = null;
-          state.resultStates.set(key, latest);
-        }, 180);
-        state.resultStates.set(key, existing);
+        const added = addScores(newTokens, transcript);
+        if (added > 0) {
+          entry.committedTokens.push(...newTokens.slice(0, added));
+        }
+        return added;
       }
 
-      function setupRecognition() {
-        if (!SpeechRecognition) {
-          els.supportBadge.textContent = "音声認識非対応";
-          els.listenBtn.disabled = true;
-          setMessage("このブラウザでは音声認識を使用できません。手動入力は利用できます。", "warning");
+      function handleRecognitionResult(result, resultIndex) {
+        const transcript = result[0].transcript.trim();
+        const tokens = parseTranscript(transcript);
+        const key = `${state.recognitionSession}:${resultIndex}`;
+        const entry = state.resultStates.get(key) || {
+          committedTokens: [],
+          lastSignature: "",
+          timer: null,
+          final: false
+        };
+
+        if (entry.final) return;
+
+        const signature = tokens.join("|");
+        if (result.isFinal) {
+          if (entry.timer) clearTimeout(entry.timer);
+          commitNewTokens(entry, tokens, transcript);
+          entry.timer = null;
+          entry.lastSignature = signature;
+          entry.final = true;
+          state.resultStates.set(key, entry);
+          if (tokens.length === 0) {
+            setMessage(`認識「${transcript || "（空欄）"}」から点数を確認できませんでした。`, "warning");
+          }
           return;
         }
 
-        els.supportBadge.textContent = "音声認識対応";
-        const recognition = new SpeechRecognition();
-        recognition.lang = els.languageSelect.value;
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.maxAlternatives = 1;
+        if (tokens.length <= entry.committedTokens.length) {
+          entry.lastSignature = signature;
+          state.resultStates.set(key, entry);
+          return;
+        }
 
-        recognition.onstart = () => {
-          state.recognitionSession += 1;
-          clearResultStates();
-          state.listening = true;
-          updateListeningUI();
-          const guide = els.languageSelect.value === "en-US"
-            ? "Speak zero through ten, inner, or inner ten."
-            : "数字、または「インナー」「インナーテン」を読み上げてください。";
-          setMessage(`音声入力中です。${guide}`, "info");
-        };
+        if (entry.timer) clearTimeout(entry.timer);
+        entry.lastSignature = signature;
+        entry.timer = setTimeout(() => {
+          const latest = state.resultStates.get(key);
+          if (!latest || latest.final || latest.lastSignature !== signature) return;
+          commitNewTokens(latest, tokens, transcript);
+          latest.timer = null;
+          state.resultStates.set(key, latest);
+        }, INTERIM_STABLE_MS);
+        state.resultStates.set(key, entry);
+      }
 
-        recognition.onresult = event => {
-          for (let i = event.resultIndex; i < event.results.length; i += 1) {
-            handleRecognitionResult(event.results[i], i);
-          }
-        };
+      function isFatalRecognitionError(error) {
+        return ["not-allowed", "service-not-allowed", "audio-capture"].includes(error);
+      }
 
-        recognition.onerror = event => {
-          const ignored = ["no-speech", "aborted"];
-          if (!ignored.includes(event.error)) {
-            setMessage(`音声認識エラー：${event.error}`, "error");
-          }
-        };
+      async function acquireWakeLock() {
+        if (!("wakeLock" in navigator) || document.hidden || !state.listening) return;
+        try {
+          state.wakeLock = await navigator.wakeLock.request("screen");
+          state.wakeLock.addEventListener("release", () => { state.wakeLock = null; });
+        } catch {}
+      }
 
-        recognition.onend = () => {
-          clearResultStates();
-          state.listening = false;
-          updateListeningUI();
-          if (state.restartAfterEnd) {
-            try {
-              recognition.start();
-            } catch {}
-          }
-        };
-
-        state.recognition = recognition;
+      async function releaseWakeLock() {
+        if (!state.wakeLock) return;
+        try { await state.wakeLock.release(); } catch {}
+        state.wakeLock = null;
       }
 
       function updateListeningUI() {
@@ -771,88 +878,172 @@
         els.listenBtn.textContent = state.listening ? "音声入力を停止" : "音声入力を開始";
       }
 
+      function setupRecognition() {
+        if (!SpeechRecognition) {
+          els.listenBtn.disabled = true;
+          setMessage("このブラウザは音声認識に対応していません。手動入力は利用できます。", "warning");
+          return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = state.language;
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+          state.recognitionSession += 1;
+          clearRecognitionResultStates();
+          state.listening = true;
+          updateListeningUI();
+          acquireWakeLock();
+          setMessage(state.language === "en-US"
+            ? "Listening: zero to ten, inner, or inner ten."
+            : "音声入力中：0〜10、インナー、インナーテン。", "info");
+        };
+
+        recognition.onresult = event => {
+          for (let index = event.resultIndex; index < event.results.length; index += 1) {
+            handleRecognitionResult(event.results[index], index);
+          }
+        };
+
+        recognition.onerror = event => {
+          if (isFatalRecognitionError(event.error)) state.shouldRestart = false;
+          if (!['no-speech', 'aborted'].includes(event.error)) {
+            const messages = {
+              'not-allowed': 'マイクの使用が許可されていません。Safariのサイト設定を確認してください。',
+              'service-not-allowed': '音声認識サービスを利用できません。',
+              'audio-capture': 'マイクを利用できません。',
+              'network': '通信状態により音声認識できませんでした。'
+            };
+            setMessage(messages[event.error] || `音声認識エラー：${event.error}`, "error");
+          }
+        };
+
+        recognition.onend = () => {
+          clearRecognitionResultStates();
+          state.listening = false;
+          updateListeningUI();
+          releaseWakeLock();
+
+          if (state.shouldRestart && !document.hidden) {
+            setTimeout(() => {
+              try { recognition.start(); } catch {}
+            }, 120);
+          }
+        };
+
+        state.recognition = recognition;
+      }
+
       function toggleListening() {
         if (!state.recognition) return;
 
         if (state.listening) {
-          state.restartAfterEnd = false;
-          state.recognition.stop();
+          state.shouldRestart = false;
+          try { state.recognition.stop(); } catch {}
           setMessage("音声入力を停止しました。", "info");
-        } else {
-          state.restartAfterEnd = true;
-          try {
-            state.recognition.start();
-          } catch {
-            setMessage("音声入力を開始できませんでした。もう一度押してください。", "error");
-          }
+          return;
+        }
+
+        state.shouldRestart = true;
+        state.recognition.lang = state.language;
+        try {
+          state.recognition.start();
+        } catch {
+          setMessage("音声入力を開始できませんでした。もう一度押してください。", "error");
         }
       }
 
       function buildManualButtons() {
-        const values = ["0","1","2","3","4","5","6","7","8","9","10","X"];
-        values.forEach(value => {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "manual-btn" + (value === "X" ? " x" : "");
-          btn.textContent = value;
-          btn.addEventListener("click", () => addScore(value, "manual"));
-          els.manualGrid.appendChild(btn);
+        ["0","1","2","3","4","5","6","7","8","9","10","X"].forEach(value => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `manual-btn${value === "X" ? " x" : ""}`;
+          button.textContent = value;
+          button.setAttribute("aria-label", `${value}を入力`);
+          button.addEventListener("click", () => addScore(value));
+          els.manualGrid.appendChild(button);
         });
+      }
+
+      function updateOnlineStatus() {
+        els.offlineNote.textContent = navigator.onLine ? "" : "オフラインです。手動入力と保存済み画面は利用できます。";
       }
 
       els.listenBtn.addEventListener("click", toggleListening);
 
       els.languageSelect.addEventListener("change", () => {
+        state.language = els.languageSelect.value === "en-US" ? "en-US" : "ja-JP";
+        saveState();
+        if (state.recognition) state.recognition.lang = state.language;
+
         if (state.listening && state.recognition) {
-          state.restartAfterEnd = false;
-          state.recognition.stop();
+          state.shouldRestart = true;
+          try { state.recognition.stop(); } catch {}
         }
-        if (state.recognition) {
-          state.recognition.lang = els.languageSelect.value;
-        }
-        const label = els.languageSelect.value === "en-US" ? "English" : "日本語";
-        setMessage(`音声認識言語を${label}に変更しました。`, "ok");
+
+        setMessage(state.language === "en-US" ? "Recognition language: English." : "音声認識言語：日本語。", "ok");
       });
 
       els.undoBtn.addEventListener("click", () => {
         if (state.current.length === 0) return;
         const removed = state.current.pop();
+        saveState();
         renderCurrent();
-        setMessage(`${removed} を取り消しました。`, "info");
+        setMessage(`${removed}を取り消しました。`, "info");
       });
 
       els.clearInputBtn.addEventListener("click", () => {
         if (state.current.length === 0) return;
-        if (!confirm("入力中の数字をすべてクリアしますか？")) return;
+        if (!confirm("入力中の点数をすべてクリアしますか？")) return;
         state.current = [];
+        saveState();
         renderCurrent();
-        setMessage("入力中の数字をクリアしました。", "ok");
+        setMessage("入力中の点数をクリアしました。", "ok");
       });
 
       els.clearHistoryBtn.addEventListener("click", () => {
         if (state.history.length === 0) return;
         if (!confirm("すべての履歴を削除しますか？この操作は元に戻せません。")) return;
         state.history = [];
-        saveHistory();
+        saveState();
         renderHistory();
         setMessage("履歴をすべて削除しました。", "ok");
       });
 
       document.addEventListener("visibilitychange", () => {
         if (document.hidden && state.listening && state.recognition) {
-          state.restartAfterEnd = false;
-          state.recognition.stop();
+          state.shouldRestart = false;
+          try { state.recognition.stop(); } catch {}
+        } else if (!document.hidden && state.listening) {
+          acquireWakeLock();
         }
       });
 
+      window.addEventListener("online", updateOnlineStatus);
+      window.addEventListener("offline", updateOnlineStatus);
+
+      els.languageSelect.value = state.language;
       buildManualButtons();
-      setupRecognition();
       renderCurrent();
       renderHistory();
+      completeRoundIfNeeded();
+      updateOnlineStatus();
+      setupRecognition();
 
       if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker.register("./sw.js").catch(() => {});
+        window.addEventListener("load", async () => {
+          try {
+            const registration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+            registration.update().catch(() => {});
+            navigator.serviceWorker.addEventListener("controllerchange", () => {
+              if (state.reloadTriggered) return;
+              state.reloadTriggered = true;
+              location.reload();
+            });
+          } catch {}
         });
       }
     })();
